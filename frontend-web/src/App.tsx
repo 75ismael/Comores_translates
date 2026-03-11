@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Book, Languages, Send, ShieldCheck, Newspaper } from 'lucide-react';
-import { getWords, getArticles } from './api';
+import { Search, Book, Languages, Send, ShieldCheck, Newspaper, GraduationCap } from 'lucide-react';
+import { getWords, getArticles, getQuizzes } from './api';
 
 interface Word {
   id: number;
@@ -18,15 +18,43 @@ interface Article {
   author: string;
 }
 
+interface Quiz {
+  id: number;
+  title: string;
+  description: string;
+  difficulty: string;
+  questions: {
+    id: number;
+    text: string;
+    option1: string;
+    option2: string;
+    option3: string;
+    option4: string;
+    correct_option: number;
+  }[];
+}
+
 function App() {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<Word[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchArticles();
+    fetchQuizzes();
   }, []);
+
+  const fetchQuizzes = async () => {
+    try {
+      const response = await getQuizzes();
+      const data = response.data.results !== undefined ? response.data.results : response.data;
+      setQuizzes(data);
+    } catch (error) {
+      console.error("Fetch quizzes error", error);
+    }
+  };
 
   const fetchArticles = async () => {
     try {
@@ -182,6 +210,31 @@ function App() {
                   <span className="text-sm text-slate-400">Par {article.author}</span>
                   <button className="text-shikomori-600 font-semibold text-sm hover:underline">Lire la suite</button>
                 </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Learning/Quiz Section */}
+        <section className="mt-24 mb-16">
+          <div className="flex items-center gap-2 mb-8">
+            <GraduationCap className="text-emerald-600" />
+            <h2 className="text-2xl font-bold text-slate-900 font-serif">Apprendre le Shikomori</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {quizzes.map((quiz) => (
+              <div key={quiz.id} className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="bg-emerald-200 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold">
+                    {quiz.difficulty}
+                  </span>
+                  <span className="text-emerald-600 text-xs font-medium">{quiz.questions.length} Questions</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{quiz.title}</h3>
+                <p className="text-slate-600 text-sm mb-6">{quiz.description}</p>
+                <button className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors">
+                  Commencer le Quiz
+                </button>
               </div>
             ))}
           </div>

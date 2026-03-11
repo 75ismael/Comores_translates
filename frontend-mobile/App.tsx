@@ -8,9 +8,10 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView
+  SafeAreaView,
+  ScrollView
 } from 'react-native';
-import { Search, Book, Languages, ChevronRight, Newspaper } from 'lucide-react-native';
+import { Search, Book, Languages, ChevronRight, Newspaper, GraduationCap } from 'lucide-react-native';
 import axios from 'axios';
 
 // IMPORTANT: Replace with your machine's local IP address to test on a real device
@@ -31,15 +32,43 @@ interface Article {
   author: string;
 }
 
+interface Quiz {
+  id: number;
+  title: string;
+  description: string;
+  difficulty: string;
+  questions: {
+    id: number;
+    text: string;
+    option1: string;
+    option2: string;
+    option3: string;
+    option4: string;
+    correct_option: number;
+  }[];
+}
+
 export default function App() {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<Word[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchArticles();
+    fetchQuizzes();
   }, []);
+
+  const fetchQuizzes = async () => {
+    try {
+      const response = await axios.get(`${API_URL}learning/quizzes/`);
+      const data = response.data.results !== undefined ? response.data.results : response.data;
+      setQuizzes(data);
+    } catch (error) {
+      console.error("Fetch quizzes error", error);
+    }
+  };
 
   const fetchArticles = async () => {
     try {
@@ -146,6 +175,30 @@ export default function App() {
                         <Text style={styles.newsContent} numberOfLines={2}>{article.content}</Text>
                       </View>
                     ))}
+                  </View>
+                )}
+
+                {/* Mobile Learning/Quiz Section */}
+                {quizzes.length > 0 && (
+                  <View style={styles.quizSection}>
+                    <View style={styles.newsHeader}>
+                      <GraduationCap color="#059669" size={20} />
+                      <Text style={[styles.newsTitle, { color: '#064e3b' }]}>Apprendre</Text>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quizScroll}>
+                      {quizzes.map((quiz) => (
+                        <View key={quiz.id} style={styles.quizCard}>
+                          <View style={styles.quizBadge}>
+                            <Text style={styles.quizBadgeText}>{quiz.difficulty}</Text>
+                          </View>
+                          <Text style={styles.quizCardTitle}>{quiz.title}</Text>
+                          <Text style={styles.quizDescription} numberOfLines={2}>{quiz.description}</Text>
+                          <TouchableOpacity style={styles.quizButton}>
+                            <Text style={styles.quizButtonText}>Démarrer</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </ScrollView>
                   </View>
                 )}
               </View>
@@ -297,5 +350,59 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748b',
     lineHeight: 18,
+  },
+  quizSection: {
+    marginTop: 30,
+    marginBottom: 20,
+  },
+  quizScroll: {
+    paddingBottom: 10,
+  },
+  quizCard: {
+    backgroundColor: '#ecfdf5',
+    padding: 18,
+    borderRadius: 20,
+    width: 260,
+    marginRight: 15,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+  },
+  quizBadge: {
+    backgroundColor: '#d1fae5',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+  },
+  quizBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#065f46',
+    textTransform: 'uppercase',
+  },
+  quizCardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#064e3b',
+    marginBottom: 6,
+  },
+  quizDescription: {
+    fontSize: 13,
+    color: '#065f46',
+    opacity: 0.8,
+    marginBottom: 15,
+    lineHeight: 18,
+  },
+  quizButton: {
+    backgroundColor: '#059669',
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  quizButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

@@ -6,6 +6,7 @@ const API = axios.create({
 
 export const getWords = (search = '') => API.get(`linguistics/words/?search=${search}`);
 export const getArticles = () => API.get('news/articles/');
+export const getQuizzes = () => API.get('learning/');
 export const submitContribution = (data: any) => API.get('linguistics/contributions/', data);
 
 export default API;
