@@ -5,6 +5,6 @@ const API = axios.create({
 });
 
 export const getWords = (search = '') => API.get(`words/?search=${search}`);
-export const submitContribution = (data) => API.get('contributions/', { method: 'POST', data });
+export const submitContribution = (data: any) => API.post('contributions/', data);
 
 export default API;
