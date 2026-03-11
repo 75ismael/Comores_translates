@@ -31,9 +31,12 @@ function App() {
     setLoading(true);
     try {
       const response = await getWords(search);
-      setResults(response.data.results);
+      // Handle both paginated (with .results) and non-paginated (raw list) responses
+      const data = response.data.results !== undefined ? response.data.results : response.data;
+      setResults(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Search error", error);
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -93,7 +96,7 @@ function App() {
             </div>
           )}
 
-          {!loading && results.length > 0 && results.map((word) => (
+          {!loading && results && results.length > 0 && results.map((word) => (
             <div key={word.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div>
