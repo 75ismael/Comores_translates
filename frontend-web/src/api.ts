@@ -1,12 +1,12 @@
 import axios from 'axios';
 
 const API = axios.create({
-    baseURL: 'http://192.168.1.8:8000/api/',
+    baseURL: 'http://localhost:8000/api/',
 });
 
 export const getWords = (search = '') => API.get(`linguistics/words/?search=${search}`);
 export const getArticles = () => API.get('news/articles/');
-export const getQuizzes = () => API.get('learning/');
+export const getQuizzes = () => API.get('learning/quizzes/');
 export const submitContribution = (data: any) => API.get('linguistics/contributions/', data);
 
 export default API;
