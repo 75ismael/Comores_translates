@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   SafeAreaView
 } from 'react-native';
-import { Search, Book, Languages, ChevronRight } from 'lucide-react-native';
+import { Search, Book, Languages, ChevronRight, Newspaper } from 'lucide-react-native';
 import axios from 'axios';
 
 // IMPORTANT: Replace with your machine's local IP address to test on a real device
@@ -23,17 +23,40 @@ interface Word {
   translations: { meaning_fr: string; dialect: string }[];
 }
 
+interface Article {
+  id: number;
+  title: string;
+  content: string;
+  pub_date: string;
+  author: string;
+}
+
 export default function App() {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<Word[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchArticles();
+  }, []);
+
+  const fetchArticles = async () => {
+    try {
+      const response = await axios.get(`${API_URL}news/articles/`);
+      const data = response.data.results !== undefined ? response.data.results : response.data;
+      setArticles(data);
+    } catch (error) {
+      console.error("Fetch articles error", error);
+    }
+  };
 
   const handleSearch = async (text: string) => {
     setSearch(text);
     if (text.length > 1) {
       setLoading(true);
       try {
-        const response = await axios.get(`${API_URL}words/?search=${text}`);
+        const response = await axios.get(`${API_URL}linguistics/words/?search=${text}`);
         const data = response.data.results !== undefined ? response.data.results : response.data;
         setResults(Array.isArray(data) ? data : []);
       } catch (error) {
@@ -103,9 +126,28 @@ export default function App() {
                 <Text style={styles.emptyText}>Aucun résultat pour "{search}"</Text>
               </View>
             ) : (
-              <View style={styles.emptyContainer}>
-                <Book color="#cbd5e1" size={60} />
-                <Text style={styles.emptyText}>Commencez à taper pour rechercher</Text>
+              <View>
+                <View style={styles.emptyContainer}>
+                  <Book color="#cbd5e1" size={60} />
+                  <Text style={styles.emptyText}>Commencez à taper pour rechercher</Text>
+                </View>
+
+                {/* Mobile News Section */}
+                {articles.length > 0 && (
+                  <View style={styles.newsSection}>
+                    <View style={styles.newsHeader}>
+                      <Newspaper color="#0284c7" size={20} />
+                      <Text style={styles.newsTitle}>Dernières Actualités</Text>
+                    </View>
+                    {articles.map((article) => (
+                      <View key={article.id} style={styles.newsCard}>
+                        <Text style={styles.newsDate}>{new Date(article.pub_date).toLocaleDateString()}</Text>
+                        <Text style={styles.newsCardTitle}>{article.title}</Text>
+                        <Text style={styles.newsContent} numberOfLines={2}>{article.content}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             )
           }
@@ -213,5 +255,47 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 16,
     textAlign: 'center',
+  },
+  newsSection: {
+    marginTop: 40,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  newsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 15,
+  },
+  newsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0c4a6e',
+  },
+  newsCard: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  newsDate: {
+    fontSize: 10,
+    color: '#0284c7',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  newsCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 5,
+  },
+  newsContent: {
+    fontSize: 13,
+    color: '#64748b',
+    lineHeight: 18,
   },
 });

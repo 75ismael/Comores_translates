@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Book, Languages, Send, ShieldCheck } from 'lucide-react';
-import { getWords } from './api';
+import { Search, Book, Languages, Send, ShieldCheck, Newspaper } from 'lucide-react';
+import { getWords, getArticles } from './api';
 
 interface Word {
   id: number;
@@ -10,10 +10,33 @@ interface Word {
   examples: { sentence_shikomori: string; sentence_fr: string }[];
 }
 
+interface Article {
+  id: number;
+  title: string;
+  content: string;
+  pub_date: string;
+  author: string;
+}
+
 function App() {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<Word[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchArticles();
+  }, []);
+
+  const fetchArticles = async () => {
+    try {
+      const response = await getArticles();
+      const data = response.data.results !== undefined ? response.data.results : response.data;
+      setArticles(data);
+    } catch (error) {
+      console.error("Fetch articles error", error);
+    }
+  };
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -139,6 +162,29 @@ function App() {
               </button>
             </div>
           )}
+        </section>
+
+        {/* News Section */}
+        <section className="mt-24">
+          <div className="flex items-center gap-2 mb-8">
+            <Newspaper className="text-shikomori-600" />
+            <h2 className="text-2xl font-bold text-slate-900 font-serif">Dernières Actualités</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {articles.map((article) => (
+              <div key={article.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                <span className="text-xs font-semibold text-shikomori-600 uppercase tracking-wider">
+                  {new Date(article.pub_date).toLocaleDateString()}
+                </span>
+                <h3 className="text-xl font-bold text-slate-900 mt-2 mb-3">{article.title}</h3>
+                <p className="text-slate-600 line-clamp-3 mb-4">{article.content}</p>
+                <div className="flex justify-between items-center pt-4 border-t border-slate-50">
+                  <span className="text-sm text-slate-400">Par {article.author}</span>
+                  <button className="text-shikomori-600 font-semibold text-sm hover:underline">Lire la suite</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       </main>
 
