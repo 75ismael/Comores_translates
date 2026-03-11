@@ -11,3 +11,30 @@ body {
   margin: 0;
   min-height: 100vh;
 }
+
+.glass {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom color tokens if needed */
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-shikomori-900 to-shikomori-600;
+}

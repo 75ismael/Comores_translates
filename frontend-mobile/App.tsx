@@ -9,10 +9,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   SafeAreaView,
-  ScrollView
+  ScrollView,
+  Modal,
+  Dimensions
 } from 'react-native';
-import { Search, Book, Languages, ChevronRight, Newspaper, GraduationCap } from 'lucide-react-native';
+import { Search, Book, Languages, ChevronRight, Newspaper, GraduationCap, X, CheckCircleChars, AlertCircle } from 'lucide-react-native';
 import axios from 'axios';
+
+const { width } = Dimensions.get('window');
 
 // IMPORTANT: Replace with your machine's local IP address to test on a real device
 const API_URL = 'http://192.168.1.8:8000/api/';
@@ -51,14 +55,33 @@ interface Quiz {
 export default function App() {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<Word[]>([]);
+  const [featuredWords, setFeaturedWords] = useState<Word[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Quiz State
+  const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [showResults, setShowResults] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [isAnswered, setIsAnswered] = useState(false);
+
   useEffect(() => {
     fetchArticles();
     fetchQuizzes();
+    fetchFeaturedWords();
   }, []);
+
+  const fetchFeaturedWords = async () => {
+    try {
+      const response = await axios.get(`${API_URL}linguistics/words/featured/`);
+      setFeaturedWords(response.data);
+    } catch (error) {
+      console.error("Fetch featured words error", error);
+    }
+  };
 
   const fetchQuizzes = async () => {
     try {
@@ -98,6 +121,34 @@ export default function App() {
     }
   };
 
+  const handleStartQuiz = (quiz: Quiz) => {
+    setActiveQuiz(quiz);
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setShowResults(false);
+    setSelectedOption(null);
+    setIsAnswered(false);
+  };
+
+  const handleAnswer = (optionIndex: number) => {
+    if (isAnswered) return;
+    setSelectedOption(optionIndex);
+    setIsAnswered(true);
+    if (optionIndex === activeQuiz?.questions[currentQuestionIndex].correct_option) {
+      setScore(score + 1);
+    }
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < (activeQuiz?.questions.length || 0) - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setSelectedOption(null);
+      setIsAnswered(false);
+    } else {
+      setShowResults(true);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -106,62 +157,57 @@ export default function App() {
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Languages color="#0284c7" size={28} />
-          <Text style={styles.logoText}>Shikomori</Text>
+          <View>
+            <Text style={styles.logoText}>Shikomori</Text>
+            <Text style={styles.logoSubText}>Linguistique</Text>
+          </View>
         </View>
       </View>
 
-      {/* Search Section */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Search color="#94a3b8" size={20} style={styles.searchIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Rechercher un mot..."
-            value={search}
-            onChangeText={handleSearch}
-          />
-        </View>
-      </View>
+      {/* Results List or Dashboard */}
+      <FlatList
+        data={results}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <>
+            {/* Search Section */}
+            <View style={styles.searchContainer}>
+              <View style={styles.searchBar}>
+                <Search color="#94a3b8" size={20} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Rechercher un mot..."
+                  value={search}
+                  onChangeText={handleSearch}
+                />
+              </View>
+            </View>
 
-      {/* Results List */}
-      {loading ? (
-        <ActivityIndicator size="large" color="#0284c7" style={{ marginTop: 40 }} />
-      ) : (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.termText}>{item.term_shikomori}</Text>
-                  <Text style={styles.posText}>{item.pos.toUpperCase()}</Text>
-                </View>
-                <ChevronRight color="#e2e8f0" size={20} />
-              </View>
-              <View style={styles.translationContainer}>
-                {item.translations.map((t, i) => (
-                  <Text key={i} style={styles.translationText}>
-                    • {t.meaning_fr} <Text style={styles.dialectText}>({t.dialect})</Text>
-                  </Text>
-                ))}
-              </View>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            search.length > 1 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Aucun résultat pour "{search}"</Text>
-              </View>
-            ) : (
-              <View>
-                <View style={styles.emptyContainer}>
-                  <Book color="#cbd5e1" size={60} />
-                  <Text style={styles.emptyText}>Commencez à taper pour rechercher</Text>
-                </View>
+            {loading && <ActivityIndicator size="large" color="#0284c7" style={{ marginVertical: 20 }} />}
 
-                {/* Mobile News Section */}
+            {/* Featured Section */}
+            {!search && featuredWords.length > 0 && (
+              <View style={styles.featuredSection}>
+                <Text style={styles.sectionTitleCap}>À découvrir</Text>
+                <View style={styles.chipContainer}>
+                  {featuredWords.map((word) => (
+                    <TouchableOpacity
+                      key={word.id}
+                      style={styles.chip}
+                      onPress={() => handleSearch(word.term_shikomori)}
+                    >
+                      <Text style={styles.chipText}>{word.term_shikomori}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Empty Dashboard Content */}
+            {!search && !loading && (
+              <>
+                {/* News Section */}
                 {articles.length > 0 && (
                   <View style={styles.newsSection}>
                     <View style={styles.newsHeader}>
@@ -178,7 +224,7 @@ export default function App() {
                   </View>
                 )}
 
-                {/* Mobile Learning/Quiz Section */}
+                {/* Quiz Section */}
                 {quizzes.length > 0 && (
                   <View style={styles.quizSection}>
                     <View style={styles.newsHeader}>
@@ -193,7 +239,10 @@ export default function App() {
                           </View>
                           <Text style={styles.quizCardTitle}>{quiz.title}</Text>
                           <Text style={styles.quizDescription} numberOfLines={2}>{quiz.description}</Text>
-                          <TouchableOpacity style={styles.quizButton}>
+                          <TouchableOpacity
+                            style={styles.quizButton}
+                            onPress={() => handleStartQuiz(quiz)}
+                          >
                             <Text style={styles.quizButtonText}>Démarrer</Text>
                           </TouchableOpacity>
                         </View>
@@ -201,11 +250,139 @@ export default function App() {
                     </ScrollView>
                   </View>
                 )}
+              </>
+            )}
+          </>
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View>
+                <Text style={styles.termText}>{item.term_shikomori}</Text>
+                <Text style={styles.posText}>{item.pos.toUpperCase()}</Text>
               </View>
-            )
-          }
-        />
-      )}
+              <ChevronRight color="#e2e8f0" size={20} />
+            </View>
+            <View style={styles.translationContainer}>
+              {item.translations.map((t, i) => (
+                <Text key={i} style={styles.translationText}>
+                  • {t.meaning_fr} <Text style={styles.dialectText}>({t.dialect})</Text>
+                </Text>
+              ))}
+            </View>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={
+          search.length > 1 && !loading ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Aucun résultat pour "{search}"</Text>
+            </View>
+          ) : null
+        }
+      />
+
+      {/* Interactive Quiz Modal */}
+      <Modal
+        visible={activeQuiz !== null}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setActiveQuiz(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setActiveQuiz(null)}
+            >
+              <X size={24} color="#64748b" />
+            </TouchableOpacity>
+
+            {!showResults && activeQuiz ? (
+              <ScrollView contentContainerStyle={styles.quizModalBody}>
+                <View style={styles.quizProgressHeader}>
+                  <Text style={styles.quizProgressText}>Question {currentQuestionIndex + 1} / {activeQuiz.questions.length}</Text>
+                  <View style={styles.progressBar}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${((currentQuestionIndex + 1) / activeQuiz.questions.length) * 100}%` }
+                      ]}
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.questionText}>{activeQuiz.questions[currentQuestionIndex].text}</Text>
+
+                <View style={styles.optionsContainer}>
+                  {[1, 2, 3, 4].map((i) => {
+                    const optionKey = `option${i}` as keyof typeof activeQuiz.questions[0];
+                    const optionText = activeQuiz.questions[currentQuestionIndex][optionKey] as string;
+                    const isCorrect = i === activeQuiz.questions[currentQuestionIndex].correct_option;
+                    const isSelected = selectedOption === i;
+
+                    let optionStyle = [styles.optionButton];
+                    let textStyle = [styles.optionText];
+
+                    if (isAnswered) {
+                      if (isCorrect) {
+                        optionStyle.push(styles.optionCorrect);
+                        textStyle.push(styles.optionTextCorrect);
+                      } else if (isSelected) {
+                        optionStyle.push(styles.optionIncorrect);
+                        textStyle.push(styles.optionTextIncorrect);
+                      } else {
+                        optionStyle.push(styles.optionDisabled);
+                        textStyle.push(styles.optionTextDisabled);
+                      }
+                    }
+
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        style={optionStyle}
+                        onPress={() => handleAnswer(i)}
+                        disabled={isAnswered}
+                      >
+                        <Text style={textStyle}>{optionText}</Text>
+                        {isAnswered && isCorrect && <CheckCircleChars size={20} color="#059669" />}
+                        {isAnswered && isSelected && !isCorrect && <AlertCircle size={20} color="#e11d48" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {isAnswered && (
+                  <TouchableOpacity
+                    style={styles.nextButton}
+                    onPress={handleNextQuestion}
+                  >
+                    <Text style={styles.nextButtonText}>
+                      {currentQuestionIndex < activeQuiz.questions.length - 1 ? 'Suivant' : 'Terminer'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            ) : activeQuiz ? (
+              <View style={styles.resultsContainer}>
+                <View style={styles.resultIconBackground}>
+                  <GraduationCap size={60} color="#059669" />
+                </View>
+                <Text style={styles.resultTitle}>Quiz terminé !</Text>
+                <Text style={styles.resultScoreText}>Ton score :</Text>
+                <Text style={styles.resultScoreValue}>
+                  {score}<Text style={styles.resultScoreTotal}>/{activeQuiz.questions.length}</Text>
+                </Text>
+                <TouchableOpacity
+                  style={styles.finishButton}
+                  onPress={() => setActiveQuiz(null)}
+                >
+                  <Text style={styles.finishButtonText}>Retour au menu</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -225,28 +402,40 @@ const styles = StyleSheet.create({
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   logoText: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#0c4a6e',
+    textTransform: 'uppercase',
+    letterSpacing: -0.5,
+  },
+  logoSubText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0284c7',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginTop: -4,
   },
   searchContainer: {
-    padding: 20,
+    paddingVertical: 20,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 15,
-    height: 55,
+    height: 60,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 15,
+    shadowRadius: 10,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
   searchIcon: {
     marginRight: 10,
@@ -255,10 +444,40 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#1e293b',
+    fontWeight: '500',
   },
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
+  },
+  featuredSection: {
+    marginBottom: 20,
+  },
+  sectionTitleCap: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 12,
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  chipText: {
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '600',
   },
   card: {
     backgroundColor: '#fff',
@@ -266,8 +485,11 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 15,
     borderWidth: 1,
-    borderBottomWidth: 3,
     borderColor: '#f1f5f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 5,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -277,14 +499,286 @@ const styles = StyleSheet.create({
   },
   termText: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0284c7',
+    fontWeight: '800',
+    color: '#0c4a6e',
   },
   posText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#94a3b8',
+    fontWeight: '700',
+    color: '#0284c7',
     marginTop: 2,
+    backgroundColor: '#f0f9ff',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  newsSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  newsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 15,
+  },
+  newsTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0c4a6e',
+  },
+  newsCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  newsDate: {
+    fontSize: 10,
+    color: '#0284c7',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  newsCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 5,
+  },
+  newsContent: {
+    fontSize: 14,
+    color: '#64748b',
+    lineHeight: 20,
+  },
+  quizSection: {
+    marginTop: 30,
+    marginBottom: 20,
+  },
+  quizScroll: {
+    paddingBottom: 10,
+  },
+  quizCard: {
+    backgroundColor: '#ecfdf5',
+    padding: 20,
+    borderRadius: 24,
+    width: 280,
+    marginRight: 15,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+  },
+  quizBadge: {
+    backgroundColor: '#d1fae5',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  quizBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#065f46',
+    textTransform: 'uppercase',
+  },
+  quizCardTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#064e3b',
+    marginBottom: 6,
+  },
+  quizDescription: {
+    fontSize: 14,
+    color: '#065f46',
+    opacity: 0.7,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  quizButton: {
+    backgroundColor: '#059669',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  quizButtonText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    height: '90%',
+    paddingTop: 20,
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    marginRight: 20,
+    padding: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 20,
+  },
+  quizModalBody: {
+    padding: 24,
+  },
+  quizProgressHeader: {
+    marginBottom: 30,
+  },
+  quizProgressText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#059669',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#059669',
+  },
+  questionText: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#1e293b',
+    marginBottom: 30,
+    lineHeight: 34,
+  },
+  optionsContainer: {
+    gap: 12,
+  },
+  optionButton: {
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#f1f5f9',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  optionText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  optionCorrect: {
+    borderColor: '#059669',
+    backgroundColor: '#ecfdf5',
+  },
+  optionTextCorrect: {
+    color: '#065f46',
+  },
+  optionIncorrect: {
+    borderColor: '#e11d48',
+    backgroundColor: '#fff1f2',
+  },
+  optionTextIncorrect: {
+    color: '#9f1239',
+  },
+  optionDisabled: {
+    opacity: 0.5,
+  },
+  optionTextDisabled: {
+    color: '#94a3b8',
+  },
+  nextButton: {
+    backgroundColor: '#1e293b',
+    paddingVertical: 18,
+    borderRadius: 20,
+    alignItems: 'center',
+    marginTop: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+  },
+  nextButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  resultsContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  resultIconBackground: {
+    width: 120,
+    height: 120,
+    backgroundColor: '#ecfdf5',
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 30,
+  },
+  resultTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#1e293b',
+    marginBottom: 10,
+  },
+  resultScoreText: {
+    fontSize: 18,
+    color: '#64748b',
+    marginBottom: 10,
+  },
+  resultScoreValue: {
+    fontSize: 72,
+    fontWeight: '900',
+    color: '#059669',
+    marginBottom: 40,
+  },
+  resultScoreTotal: {
+    fontSize: 24,
+    color: '#cbd5e1',
+  },
+  finishButton: {
+    backgroundColor: '#0284c7',
+    width: '100%',
+    paddingVertical: 18,
+    borderWidth: 0,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+  },
+  finishButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 40,
+  },
+  emptyText: {
+    color: '#94a3b8',
+    fontSize: 16,
+    textAlign: 'center',
   },
   translationContainer: {
     gap: 6,
@@ -297,112 +791,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94a3b8',
     fontStyle: 'italic',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 80,
-    gap: 15,
-  },
-  emptyText: {
-    color: '#94a3b8',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  newsSection: {
-    marginTop: 40,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-  newsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 15,
-  },
-  newsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0c4a6e',
-  },
-  newsCard: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  newsDate: {
-    fontSize: 10,
-    color: '#0284c7',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  newsCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 5,
-  },
-  newsContent: {
-    fontSize: 13,
-    color: '#64748b',
-    lineHeight: 18,
-  },
-  quizSection: {
-    marginTop: 30,
-    marginBottom: 20,
-  },
-  quizScroll: {
-    paddingBottom: 10,
-  },
-  quizCard: {
-    backgroundColor: '#ecfdf5',
-    padding: 18,
-    borderRadius: 20,
-    width: 260,
-    marginRight: 15,
-    borderWidth: 1,
-    borderColor: '#d1fae5',
-  },
-  quizBadge: {
-    backgroundColor: '#d1fae5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginBottom: 10,
-  },
-  quizBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#065f46',
-    textTransform: 'uppercase',
-  },
-  quizCardTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#064e3b',
-    marginBottom: 6,
-  },
-  quizDescription: {
-    fontSize: 13,
-    color: '#065f46',
-    opacity: 0.8,
-    marginBottom: 15,
-    lineHeight: 18,
-  },
-  quizButton: {
-    backgroundColor: '#059669',
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  quizButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
   },
 });
