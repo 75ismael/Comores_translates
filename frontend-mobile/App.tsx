@@ -14,7 +14,7 @@ import { Search, Book, Languages, ChevronRight } from 'lucide-react-native';
 import axios from 'axios';
 
 // IMPORTANT: Replace with your machine's local IP address to test on a real device
-const API_URL = 'http://127.0.0.1:8000/api/';
+const API_URL = 'http://192.168.1.8:8000/api/';
 
 interface Word {
   id: number;
